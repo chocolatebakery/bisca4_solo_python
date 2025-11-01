@@ -3,6 +3,7 @@
 #include <string>
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
 
 enum class Suit { Paus = 0, Ouros = 1, Copas = 2, Espadas = 3 };
 enum class Rank { R2, R3, R4, R5, R6, R10, J, Q, K, A };

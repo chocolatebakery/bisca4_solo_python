@@ -1,6 +1,68 @@
 #include "eval_nnue.h"
-#include <fstream>
+#include <algorithm>
 #include <cmath>
+#include <cctype>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <vector>
+
+static bool isAbsolutePath(const std::string& path) {
+    if (path.empty()) return false;
+    if (path[0] == '/' || path[0] == '\\') return true;
+    if (path.size() > 1 && path[1] == ':' && std::isalpha(static_cast<unsigned char>(path[0]))) return true;
+    return false;
+}
+
+static bool hasDirectoryComponent(const std::string& path) {
+    return path.find('/') != std::string::npos || path.find('\\') != std::string::npos;
+}
+
+static std::string joinPath(const std::string& base, const std::string& leaf) {
+    if (base.empty()) return leaf;
+    if (base.back() == '/' || base.back() == '\\') return base + leaf;
+#ifdef _WIN32
+    return base + "\\" + leaf;
+#else
+    return base + "/" + leaf;
+#endif
+}
+
+static bool openNNUEFile(const std::string& requested,
+                         std::ifstream& stream,
+                         std::string& resolvedPath) {
+    std::vector<std::string> candidates;
+    auto addCandidate = [&](const std::string& cand) {
+        if (cand.empty()) return;
+        if (std::find(candidates.begin(), candidates.end(), cand) == candidates.end()) {
+            candidates.push_back(cand);
+        }
+    };
+
+    if (isAbsolutePath(requested) || hasDirectoryComponent(requested)) {
+        addCandidate(requested);
+    } else {
+        addCandidate(requested);
+        if (const char* envDir = std::getenv("NNUE_DIR")) {
+            addCandidate(joinPath(envDir, requested));
+        }
+        if (const char* envAssets = std::getenv("NNUE_ASSETS_DIR")) {
+            addCandidate(joinPath(envAssets, requested));
+        }
+        addCandidate(joinPath("gui", requested));
+        addCandidate(joinPath("assets", requested));
+    }
+
+    for (const auto& cand : candidates) {
+        stream.open(cand, std::ios::binary);
+        if (stream) {
+            resolvedPath = cand;
+            return true;
+        }
+        stream.clear();
+    }
+    return false;
+}
 
 // Mapeia carta -> índice único [0..39] (naipe * 10 + rankIndex)
 static int cardIndex(const Card& c) {
@@ -220,8 +282,15 @@ bool saveWeights(const NNUEWeights& w, const std::string& path) {
 }
 
 bool loadWeights(NNUEWeights& w, const std::string& path) {
-    std::ifstream f(path, std::ios::binary);
-    if (!f) return false;
+    std::ifstream f;
+    std::string resolvedPath;
+    if (!openNNUEFile(path, f, resolvedPath)) {
+        return false;
+    }
+
+    if (resolvedPath != path) {
+        std::cerr << "NNUE: a usar '" << resolvedPath << "' (pedido '" << path << "').\n";
+    }
 
     int inSz=0, h1=0, h2=0;
     f.read((char*)&inSz, sizeof(int));

@@ -9,6 +9,7 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <cmath>
 
 static bool g_rootMTFlag = false;
 

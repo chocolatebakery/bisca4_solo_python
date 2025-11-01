@@ -11,54 +11,6 @@
 // Helpers de texto/cartas
 // ======================
 
-// Converte Suit -> nome em português
-static std::string suitName(Suit s) {
-    switch (s) {
-    case Suit::Ouros:   return "Ouros";
-    case Suit::Copas:   return "Copas";
-    case Suit::Espadas: return "Espadas";
-    case Suit::Paus:    return "Paus";
-    default:            return "?";
-    }
-}
-
-// Converte Rank -> "A", "K", "Q", "J", "10", "6", etc.
-static std::string rankName(Rank r) {
-    switch (r) {
-    case Rank::A:   return "A";
-    case Rank::K:   return "K";
-    case Rank::Q:   return "Q";
-    case Rank::J:   return "J";
-    case Rank::R10: return "10";
-    case Rank::R6:  return "6";
-    case Rank::R5:  return "5";
-    case Rank::R4:  return "4";
-    case Rank::R3:  return "3";
-    case Rank::R2:  return "2";
-    default:        return "?";
-    }
-}
-
-// "A de Espadas", "10 de Ouros", etc.
-static std::string cardToString(const Card& c) {
-    std::ostringstream ss;
-    ss << rankName(c.rank) << " de " << suitName(c.suit);
-    return ss.str();
-}
-
-// Pontos de uma carta individual segundo as regras:
-// Dama(Q)=2, Valete(J)=3, Rei(K)=4, 10=10, Ás(A)=11
-static int cardPointsLocal(const Card& c) {
-    switch (c.rank) {
-    case Rank::Q:   return 2;
-    case Rank::J:   return 3;
-    case Rank::K:   return 4;
-    case Rank::R10: return 10;
-    case Rank::A:   return 11;
-    default:        return 0;
-    }
-}
-
 // Isto já existe no teu código original
 extern int cardStrength(const Card& c);
 
@@ -187,7 +139,7 @@ std::pair<int,int> GameState::evaluateTrick() const {
 
     int potPoints = 0;
     for (auto &c : trick.cards)
-        potPoints += cardPointsLocal(c);
+        potPoints += cardPoints(c);
 
     bool anyTrump = false;
     for (auto &c : trick.cards)
@@ -279,7 +231,7 @@ std::string GameState::toString() const {
     oss << "---------------------------------\n";
 
     oss << "Trunfo: " << cardToString(trumpCard)
-        << " (" << suitName(trumpCard.suit) << ")\n";
+        << " (" << suitToString(trumpCard.suit) << ")\n";
 
     oss << "Pontuacao: P0=" << score[0]
         << " P1=" << score[1] << "\n";
