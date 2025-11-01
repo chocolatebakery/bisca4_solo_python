@@ -108,7 +108,7 @@ class BiscaGUI:
             ("Difícil", {"engine": "mcts",      "exe": "bisca4_mcts.exe", "iterations": 4200, "cpuct": 1.40, "nnue": "nnue_hard.bin"}),
         ])
 
-        initial_diff = "Médio"
+        initial_diff = "Difícil"
         self.difficulty = tk.StringVar(value=initial_diff)
 
         # runtime config
@@ -160,16 +160,6 @@ class BiscaGUI:
         self.btn_forward = tk.Button(root, text=">>", command=self.on_forward)
         self.btn_forward.grid(row=2, column=1, sticky="ew")
 
-        self.log_box = tk.Text(
-            root,
-            height=8,
-            width=60,
-            bg="#000000",
-            fg="#aaffaa",
-            insertbackground="white"
-        )
-        self.log_box.grid(row=2, column=2, columnspan=3, sticky="nsew")
-
         root.columnconfigure(4, weight=1)
         root.rowconfigure(0, weight=1)
 
@@ -182,8 +172,7 @@ class BiscaGUI:
     # ---------------- utils / mensagens ----------------
 
     def log(self, text):
-        if text:
-            self.log_box.insert("1.0", text.strip() + "\n")
+        return
 
     def popup(self, msg):
         messagebox.showinfo("Bisca dos 4", msg)
