@@ -1,0 +1,147 @@
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+
+
+💡 O que ganhas agora
+
+Escolha da rede NNUE:
+
+--nnue nome.bin
+
+Exemplo:
+
+bisca4.exe --mode selfplay --nnue nnue_trained.bin --games 500 --depth 3
+
+Se falhar o load, faz fallback e cria nnue_random.bin.
+
+Geração de dados para treino:
+
+--mode selfplay
+
+Controlas --games (quantos jogos) e --depth (qualidade da busca)
+
+Sai dataset.bin para treinar com o train_nnue.py
+
+Loop estilo UCI:
+
+--mode engine
+
+Exemplo de sessão:
+bisca4> newgame
+bisca4> show
+bisca4> bestmove
+bisca4> play 2
+bisca4> show
+bisca4> quit
+
+Podes já apontar uma futura GUI C# para isto: ela arranca o processo com --mode engine, escreve comandos no stdin e lê o stdout.
+
+Dá-te feedback explícito se carregou ou não o binário NNUE.
+
+====
+Treino simples do zero (random init → treina 200 épocas → guarda):
+
+python train_nnue.py --dataset dataset.bin --out-weights nnue_trained.bin --epochs 200
+
+LAMBDA
+python train_nnue.py --dataset dataset.bin --out-weights nnue_trained.bin --lambda-scale 0.01 --epochs 400
+
+=====
+python train_nnue.py --dataset dataset.bin --init-weights nnue_trained.bin --out-weights nnue_trained_v2.bin --epochs 5000 --lr 5e-4
+python train_nnue.py --dataset dataset.bin --init-weights nnue_trained_v2.bin --out-weights nnue_trained_v3.bin --epochs 5000 --lambda-scale 0.01 --lr 5e-4
+python train_nnue.py --dataset dataset.bin --init-weights nnue_trained_v3.bin --out-weights nnue_trained_v4.bin --epochs 40000 --lambda-scale 0.01 --lr 5e-4
+
+
+bisca4.exe --mode selfplay --games 5000 --depth 2 --info partial --nnue nnue_trained_p.bin
+python train_nnue.py --dataset dataset.bin --out-weights nnue_trained_p.bin --epochs 200 --lr 0.001 --lambda-scale 0.01
+python train_nnue.py --dataset dataset.bin --init-weight nnue_trained_p.bin --out-weights nnue_trained_p2.bin --epochs 2000 --lr 0.001 --lambda-scale 0.01
+
+
+bisca4.exe --mode selfplay --nnue nnue.bin --games 200 --depth 3 --dataset dataset.bin --out-weights nnue_out.bin
+python train_nnue.py --dataset dataset.bin --init-weights nnue_out.bin --out-weights nnue_trained.bin --epochs 400 --lr 0.001 --lambda-scale 0.01
+
+
+
+MCTS Parameters
+
+MCTS_ITER (--iterations): number of playouts per move. More iterations reduce variance and sharpen decisions, but increase computation roughly linearly. Typical ranges: 1–2k for quick testing, 4–8k when you want noticeably stronger play. You already trained 47 iterations of the self-play loop; to push further, gradually bump this value as hardware allows.
+MCTS_CPUCT (--cpuct): exploration constant in the UCT formula Q + cpuct * sqrt(ln(N_parent)/N_child).
+• Lower values (~0.8–1.0) favor exploitation of known good moves;
+• Higher values (~1.6–2.0) spread visits more evenly, useful early in training to avoid local optima.
+Default 1.4 is a good middle ground; tweak only if you see the tree over/under-exploring.
+(Optional) Rollout limit: right now simulations run to game end. If later iterations become too slow, you can add a cap in MCTSConfig and value unfinished playouts with a heuristic.
+Next Training Steps
+
+Raise simulation strength
+
+In auto.bat, set ENGINE=bisca4_mcts.exe.
+Increase MCTS_ITER as the network improves (e.g. go 2000 → 4000 → 6000). Monitor wall-clock time per iteration so it stays manageable. Adjust MCTS_CPUCT only if the tree over-commits to a single line or spreads too thin.
+Scale self-play volume carefully
+
+GAMES_START/GROW_GAMES control how many games each iteration generates. After dozens of iterations you likely have strong weights; consider slowing growth (e.g. GROW_GAMES≈1.2) to keep dataset sizes manageable and maintain diversity.
+Training hyperparameters (train_nnue.py)
+
+Keep LR=0.001 while gradients are still stable. If you notice loss plateauing across iterations, drop to 5e-4.
+EPOCHS_FIXED=4000 is aggressive; once datasets reach hundreds of thousands of positions, you can lower this or move to an exponential decay (e.g. 4000 → 2000) to avoid overfitting.
+Use small L2 (L2_REG=1e-4) only after the first iteration (already handled). Watch for training loss vs. validation or game strength; if training keeps improving but actual play stagnates, increase regularization slightly or add dropout in future network revisions.
+Checkpointing and evaluation
+
+Keep nnue_iterX.bin archives so you can pit versions against each other. Run fixed match suites (e.g. 100 games, same seed) to confirm that raising MCTS_ITER actually yields performance gains.
+Consider perfect-info cycles later
+
+Once partial-info training stabilizes, reintroduce occasional perfect-info self-play (maybe every 5th iteration) to bootstrap the network’s value estimates in late-game situations. For now you’ve correctly focused on partial info until randomness settles.
+Testing time budgets
+
+In GUI or engine mode, decide on a per-move time or iteration limit matching your target hardware. If you plan to deploy with fixed time, you may want to convert iterations into time-based loop (e.g. run until a millisecond ceiling) to balance performance.
+Feature/architecture tweaks
+
+If training plateaus, experiment with deeper NNUE (e.g. 128×64) and adjust learning rate accordingly. Be aware inference cost scales but with MCTS you can compensate by lowering iterations slightly.
+Keep an eye on logs: if selfplay_report.txt score diff trends toward zero and new iterations don’t improve, it’s time to adjust hyperparameters (increase games, lower learning rate, or revisit cpuct).
+
+
+cmake --build build --target bisca4 --config Release
+cmake --build build --target bisca4_mcts --config Release
+cmake --build build --target bisca4_match --config Release
+
+bisca4_match --engine1 ab --nnue1 nnue_iter16.bin --depth1 9 ^
+             --engine2 mcts --nnue2 nnue_iter16.bin --iterations2 4200 --cpuct2 1.35 ^
+             --name1 "AB" ^
+             --name2 "MCTS" --games 400
+
+bisca4_match --engine1 ab --nnue1 nnue_iter47.bin --depth1 6 \
+             --engine2 ab --nnue2 nnue_iter46.bin --depth2 6 --games 200
+
+=====
+Projeto alternativo MCTS (novo executável `bisca4_mcts`)
+
+Construção:
+cmake --build . --target bisca4_mcts --config Release
+
+Modo engine:
+bisca4_mcts --mode engine --iterations 3000 --cpuct 1.2 --info partial
+
+Modo selfplay (gera dataset_... com o mesmo formato):
+bisca4_mcts --mode selfplay --games 1000 --iterations 2000 --cpuct 1.4 --info perfect --threads 8 --dataset dataset_mcts.bin
+
+O parâmetro `--depth` continua aceite como alias de `--iterations`.
+=====
+Matches head-to-head (novo executável isca4_match)
+
+Construção:
+cmake --build . --target bisca4_match --config Release
+
+Exemplos:
+bisca4_match --engine1 ab --nnue1 nnue_iter47.bin --depth1 6 ^
+             --engine2 mcts --iterations2 4000 --cpuct2 1.4 --games 200
+
+bisca4_match --engine1 mcts --iterations1 2000 --engine2 mcts --iterations2 6000 --games 100
+
+Opções úteis:
+  --games N          número de partidas (alternando cores automaticamente)
+  --perfect-info     ativa perfect info nas avaliações
+  --seed N           fixa a seed base
+  --nnue{1,2} path   rede NNUE para motores alpha-beta
+- isca4_mcts aceita agora --nnue caminho.bin; se fornecido, a NNUE avalia as folhas do MCTS (sem caminho ⇒ rollouts puros).
+- uto.bat já envia --nnue quando corres com ENGINE=bisca4_mcts.exe.
