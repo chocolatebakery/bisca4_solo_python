@@ -185,7 +185,7 @@ Card assets: **CC0 (Public Domain)**.
 
 ## ❤️ Credits
 
-- C++ engine and NNUE logic by [Your Name]  
+- C++ engine and NNUE logic by chocolatebakery
 - Card graphics by [Kenney.nl](https://kenney.nl)  
 - Inspired by the traditional Portuguese game *Bisca dos 4*  
 - Made with 🧠, ☕, and a few lucky hands of cards.
